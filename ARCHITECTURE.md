@@ -72,7 +72,7 @@ models.py  (bağımsız)
 | Alan | Açıklama |
 |---|---|
 | `row_id` | Kaydın, ait olduğu `Dataset` içinde yükleme anında atanan ve o `Dataset` yaşadığı sürece **değişmeyen** kimliği. Kaynak dosyanın fiziksel satır numarasıyla ilgisi yoktur. |
-| `raw` | Kolon adı → ham değer eşlemi. Değer şunlardan biri olabilir: `MISSING` (bu kayıtta alan hiç yok), `None` (kaynakta açık null), boş metin `""`, metin, sayı, mantıksal (bool), veya liste. İç içe nesneler düzleştirme sırasında çözülür; ham değer olarak sözlük (dict) kalmaz. |
+| `raw` | Kolon adı → ham değer eşlemi. Değer şunlardan biri olabilir: `MISSING` (bu kayıtta alan hiç yok), `None` (kaynakta açık null), boş metin `""`, metin, sayı, mantıksal (bool), liste, veya boş sözlük `{}` (yalnızca boş bir iç içe nesne alanı için). İç içe nesneler düzleştirme sırasında çözülür ve dot-path kolonlarına dağıtılır; yalnızca **boş** bir iç içe nesnenin düzleştirilecek alt anahtarı olmadığı için olduğu gibi (`{}`) korunması istisnadır — bu durumda alan kaybolmaz. |
 
 **Dataset** — bir dosyadan yüklenen tüm veriyi temsil eder:
 
@@ -84,8 +84,8 @@ models.py  (bağımsız)
 **format_value(değer) → metin** — ham bir değeri, gösterim ve arama sırasında ortak kullanılacak metne çevirir:
 
 - `MISSING` veya `None` → boş metin (`""`)
-- liste → köşeli parantez içinde, elemanlar virgülle ayrılmış, her eleman yine `format_value` ile metne çevrilir (örn. `[a, b, c]`); boş liste `[]` olarak gösterilir
-- diğer değerler → doğrudan metin karşılığı
+- liste veya sözlük (yalnızca boş iç içe nesne alanlarından gelebilir) → JSON biçiminde metne çevrilir (`json.dumps`); bu sayede metin elemanları tırnaklı kalır, elemanlar arasındaki sınır açık olur, listedeki `None` değerleri `null` olarak görünür, iç içe nesne/liste elemanları olduğu gibi korunur; boş liste `[]`, boş nesne `{}` olarak gösterilir
+- diğer değerler → doğrudan metin karşılığı (`str(value)`)
 
 İkinci bir tam "display" sözlüğü **tutulmayacaktır**. Hem tablo gösterimi hem arama, aynı `format_value` fonksiyonunu kullanır; böylece ekranda görünen ile aranan metin arasında hiçbir zaman fark oluşmaz ve büyük veri kümelerinde ikinci bir string kopyasının bellek maliyeti ortadan kalkar.
 
@@ -138,8 +138,10 @@ Kullanıcı etkileşimi:
 
 - `MISSING` (alan yok), `None` (açık null) ve `""` (boş metin) birbirinden ayrı ham durumlar olarak korunur.
 - CSV ve XML kaynaklı metinler **hiçbir zaman otomatik olarak sayıya çevrilmez** (örn. `"00123"` baştaki sıfırlarıyla korunur).
-- Listeler ham veride liste olarak kalır; gösterimde köşeli parantez ve eleman sınırları korunur; boş liste `[]` olarak gösterilir.
+- Listeler (ve içlerindeki iç içe nesneler) ham veride olduğu gibi korunur; gösterimde JSON biçimi kullanıldığı için metin tırnakları, eleman sınırları ve `null` değerleri korunur, boş liste `[]` olarak gösterilir. Boş bir iç içe nesne alanı da (`{}`) düzleştirme sırasında kaybolmaz, olduğu gibi korunur ve `{}` olarak gösterilir.
 - YAML ayrıştırmasında `yaml.safe_load` kullanılır. Tarih, bytes, set gibi YAML'a özgü ek türlerin destek politikası (metne mi çevrilecek, nasıl ele alınacak) bu doküman kapsamında kesinleştirilmemiştir; STEP 2'de ayrıntılı biçimde tanımlanıp test edilecektir.
+- Dosyalar UTF-8 (BOM'lu ya da BOM'suz) olarak okunur. Dosya bu şekilde çözülemiyorsa (geçersiz UTF-8 baytları) hatalı baytlar yok sayılmaz veya değiştirilmez; açıklayıcı bir `ParseError` fırlatılır.
+- JSON'a özgü olarak: standart JSON dışı `NaN`/`Infinity`/`-Infinity` sabitleri (kökte, iç içe nesne veya liste içinde her nerede geçerse) sessizce özel bir float değerine çevrilmez, `ParseError` ile reddedilir. Aynı şekilde, sayısal aralığı aşan bir sayı harfi (ör. `1e400`, `-1e400`) `float()` dönüşümünde sessizce sonsuzluğa taşmaz; bu da `ParseError` ile reddedilir. Bu iki kontrol yalnızca JSON parser'ına özgüdür (CSV/YAML/XML için ayrıca ele alınacaktır).
 
 ## 7. Algoritmalar
 
