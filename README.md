@@ -1,14 +1,251 @@
 # DataInspector · livedata
 
+![Python](https://img.shields.io/badge/python-3.13-blue)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
+![UI](https://img.shields.io/badge/UI-Tkinter%20%7C%20Django-green)
+![Tests](https://img.shields.io/badge/tests-135%20passing-brightgreen)
+
+**[English](#english)** · **[Türkçe](#türkçe)**
+
+---
+
+## English
+
+**A big-data viewer that inspects CSV, JSON, XML and YAML files with hundreds
+of millions of records in place, straight from the source.** The file is
+never loaded into memory and no intermediate file is written to disk; the
+first page of a 112 GB file appears in under half a second.
+
+It has two equivalent interfaces, both built on the same core (`livedata/`):
+
+- **Desktop** — Tkinter, Office-style ribbon menu, Windows 11 (Fluent)
+  light/dark theme.
+- **Web** — Django; used from a browser on the same machine or from another
+  computer/phone on the local network.
+
+### Highlights
+
+- **Four formats, one engine** — CSV/TSV, JSON/JSONL/NDJSON, XML and YAML
+  open in the same window at the same speed.
+- **Instant open** — format detection ~10 ms, first page < 0.5 s; no waiting
+  for a full index scan, which runs only when and as far as needed.
+- **Random access** — jump to any row in 0.4 ms; the sparse index (one
+  offset per 1,000 records) takes only **1.6 MB of RAM** for 205 million
+  records.
+- **Search** — plain text or regex, case-sensitive or not; ~800 MB/s
+  streaming scan without an index, with navigation between matches.
+- **Sorting** — without writing to disk: in-page sort, top-N (Top-K) and
+  sorting of search results.
+- **Multi-selection** — mark records, view them in a separate window, copy
+  to the clipboard or export to **Excel / Word / PDF** (standard library
+  only).
+- **Base64 decoding** — joins and decodes Base64 fields split across
+  several columns, with prefixes/suffixes; detects text vs. binary payloads.
+- **Safety nets** — warns if the source file changes during a session;
+  explicitly rejects files that are not written one record per line instead
+  of silently showing wrong results.
+- **Conveniences** — column hiding, recent files, row detail window,
+  drag-and-drop to open, single-file `.exe` packaging.
+
+### Three rules
+
+1. **Nothing is written to disk.** No temporary files, converted copies,
+   index files or caches; the source is opened read-only. The status bar
+   shows it at all times: *"Written to disk: 0 bytes"*. (Exceptions: the
+   Excel/Word/PDF outputs the user explicitly asks for, and the list of
+   recent file paths.)
+2. **The file is not loaded into memory.** RAM usage has a ceiling
+   independent of file size — a 112 GB file uses the same memory as a
+   600 MB one.
+3. **The UI never freezes.** Index scanning, record reading, search and
+   sorting run on background threads.
+
+### Installation
+
+```bash
+git clone https://github.com/erenunalsan/DataInspector.git
+cd DataInspector
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+| Package | Used for |
+|---|---|
+| `PyYAML` | Fallback parser for YAML syntax that is not JSON-compatible |
+| `sv-ttk` | Desktop light/dark theme |
+| `django`, `waitress` | Web interface |
+| `pillow` | Generating the app icon (`tools/ikon_uret.py`) |
+| `pyinstaller` | Only for building the `.exe` (optional) |
+
+### Usage
+
+#### Desktop
+
+Double-click `veri_goruntuleyici.bat` (drop a data file onto it to load that
+file on startup), or:
+
+```bash
+python veri_goruntuleyici.py
+```
+
+```bash
+python veri_goruntuleyici.py "D:\data\file.csv"
+```
+
+| Tab | Contents | Shortcut |
+|---|---|---|
+| **Dosya** (File) | CSV options: delimiter, encoding, header row, quoting | `Ctrl+1` |
+| **Ana Sayfa** (Home) | Paging, go to row, Base64 decode, full index, columns | `Ctrl+2` |
+| **Arama** (Search) | Text/regex search, case sensitivity, match navigation | `Ctrl+3` |
+| **Sıralama** (Sort) | Column, direction, type, scope, top-N | `Ctrl+4` |
+| **Seçim** (Selection) | Select page, clear selection, show/export selected | `Ctrl+5` |
+
+> The user interface is in Turkish.
+
+#### Web
+
+The **🌐 Web Arayüzü** button on the desktop app starts the server in the
+background and opens the browser. To start it manually, use
+`webde_goruntule.bat` or:
+
+```bash
+python manage.py runserver 127.0.0.1:8000 --noreload
+```
+
+Then open `http://127.0.0.1:8000`. Sessions are kept in-process, so the
+server must run as a **single process** (`--noreload` is required). Details
+and API endpoints: [LIVEDATA_WEB.md](LIVEDATA_WEB.md).
+
+> ⚠️ The web interface is designed for the local machine / a trusted local
+> network: there is no authentication or CSRF protection and `DEBUG = True`.
+> Do not run it as-is on an internet-facing server.
+
+#### Distributing to a machine without Python
+
+`tools/exe_paketle.bat` packages the desktop app into a single
+`dist/LiveDataGoruntuleyici.exe` (~12 MB); no Python installation is needed
+on the target machine.
+
+### Supported files
+
+Extensions: `.csv` `.tsv` `.txt` `.json` `.jsonl` `.ndjson` `.xml` `.yaml`
+`.yml` — UTF-8 and single-byte encodings (UTF-16/32 are not supported).
+
+The speed comes from a single assumption: **one record = one line.** Truly
+large data files are almost always written this way, so finding the Nth
+record reduces to finding the Nth `\n` byte, and all four formats share the
+same index/search code.
+
+| Format | Expected layout |
+|---|---|
+| CSV | Optional header row + one record per line (quoted fields supported) |
+| JSON | `{"rows":[` header, one object per line, `]}` trailer — or JSON Lines |
+| XML | `<?xml…?>` + wrapper, one record element per line, closing tag |
+| YAML | `rows:` header, one `- {…}` flow item per line |
+
+Pretty-printed JSON or XML with records spread across multiple lines will
+not open; a descriptive error is shown instead of wrong row numbers.
+
+### Measured performance
+
+Measured with real files through this application:
+
+| File | Size | Records |
+|---|---|---|
+| CSV | 59.4 GiB | 205,060,846 |
+| JSON | 62.8 GiB | 238,758,543 |
+| XML | 112.8 GiB | 293,180,461 |
+| YAML | 84.6 GiB | 214,088,734 |
+
+| Operation | Measurement |
+|---|---|
+| First page on screen | **< 0.5 s** |
+| Random record access | **0.41 ms** |
+| Reading a 250-record window | 0.3 ms |
+| Full index scan | ~400 MB/s (disk-bound) — 59.4 GiB CSV: 2 min 33 s |
+| Search | ~780–870 MB/s |
+| Index RAM (205M records) | **1.6 MB** |
+
+The project's previous version first copied the source into a new on-disk
+store (JSONL + dense index): ~150 GiB of extra disk for the same four files,
+plus waiting for the import to finish. livedata removes that copy step
+entirely — see the comparison in [LIVEDATA.md](LIVEDATA.md).
+
+### Architecture
+
+```
+livedata/
+  rowscan.py      line-boundary primitives on raw bytes
+  formats/        everything format-specific (csv / json / xml / yaml)
+  rowindex.py     sparse index + scanner thread
+  blockreader.py  random record-window reads from an anchor
+  loader.py       priority request queue + LRU cache
+  finder.py       streaming text / regex search
+  sorting.py      three permutation-free sort modes
+  selection.py    multi-selection set
+  b64.py          Base64 extraction / decoding
+  exporters.py    Excel / Word / PDF generation (stdlib only)
+  session.py      facade tying everything together
+  ui/             Tkinter desktop interface
+gorunum/          Django web interface (thin adapter + virtual table JS)
+webproj/          Django project settings
+veri_goruntuleyici.py   desktop entry point
+manage.py               web entry point
+tools/            icon generation and .exe packaging
+```
+
+The core is format-agnostic: adding a new format means adding a single
+module under `formats/`. The `livedata/` package does not depend on Tkinter;
+the web interface uses it unchanged.
+
+### Tests
+
+```bash
+python -m unittest tests.test_livedata
+```
+
+```bash
+python manage.py test gorunum
+```
+
+The first runs the 135 unit tests of the livedata core (line boundaries,
+format detection, index correctness, search, sorting, selection, Base64,
+export…); the second runs the web interface tests.
+
+> Do not use `unittest discover -s tests`: `tests/` also contains ~356 tests
+> for the legacy code below; they take minutes and are unrelated to
+> livedata.
+
+### Documentation
+
+The detailed documents are in Turkish:
+
+- [LIVEDATA.md](LIVEDATA.md) — architecture, UI, all features,
+  measurements, deliberate limits.
+- [LIVEDATA_WEB.md](LIVEDATA_WEB.md) — web interface architecture, API and
+  differences from the desktop app.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — architecture of the legacy
+  DataInspector version (historical).
+
+### Legacy code
+
+`main.py`, `models.py`, `gui/`, `parsers/`, `algorithms/`, `decoder/`,
+`streaming_pilot/`, `utils/` and `ARCHITECTURE.md` belong to the project's
+first, now abandoned version (DataInspector). livedata is a completely
+independent infrastructure written from scratch and uses none of them. The
+legacy code is kept in the repository for historical reference only and is
+not maintained. The small sample files under `samples/` are also for that
+legacy version's tests.
+
+---
+
+## Türkçe
+
 **Yüz milyonlarca kayıtlık CSV, JSON, XML ve YAML dosyalarını kaynağından,
 yerinde inceleyen büyük veri görüntüleyici.** Dosya belleğe alınmaz, diske
 hiçbir ara dosya yazılmaz; 112 GB'lık bir dosyanın ilk sayfası yarım
 saniyenin altında ekrana gelir.
-
-![Python](https://img.shields.io/badge/python-3.13-blue)
-![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
-![Arayüz](https://img.shields.io/badge/aray%C3%BCz-Tkinter%20%7C%20Django-green)
-![Testler](https://img.shields.io/badge/testler-135%20ge%C3%A7iyor-brightgreen)
 
 İki eşdeğer arayüzü vardır, ikisi de aynı çekirdeği (`livedata/`) kullanır:
 
@@ -17,9 +254,7 @@ saniyenin altında ekrana gelir.
 - **Web** — Django; aynı makineden ya da yerel ağdaki başka bir
   bilgisayar/telefondan tarayıcıyla kullanılır.
 
----
-
-## Öne çıkanlar
+### Öne çıkanlar
 
 - **Dört biçim, tek motor** — CSV/TSV, JSON/JSONL/NDJSON, XML ve YAML aynı
   pencerede, aynı hızda açılır.
@@ -41,7 +276,7 @@ saniyenin altında ekrana gelir.
 - **Kolaylıklar** — kolon gizleme, son kullanılan dosyalar, satır ayrıntı
   penceresi, sürükle-bırak ile açma, tek dosyalık `.exe` paketleme.
 
-## Üç kural
+### Üç kural
 
 1. **Diske hiçbir şey yazılmaz.** Ara dosya, dönüştürülmüş kopya, indeks
    dosyası ya da önbellek oluşturulmaz; kaynak salt okunur açılır. Durum
@@ -54,7 +289,7 @@ saniyenin altında ekrana gelir.
 3. **Arayüz kilitlenmez.** İndeks taraması, kayıt okuma, arama ve sıralama
    arka plan thread'lerinde çalışır.
 
-## Kurulum
+### Kurulum
 
 ```bash
 git clone https://github.com/erenunalsan/DataInspector.git
@@ -72,9 +307,9 @@ pip install -r requirements.txt
 | `pillow` | Uygulama ikonunun üretimi (`tools/ikon_uret.py`) |
 | `pyinstaller` | Yalnızca `.exe` paketlemek için (isteğe bağlı) |
 
-## Kullanım
+### Kullanım
 
-### Masaüstü
+#### Masaüstü
 
 `veri_goruntuleyici.bat`'a çift tıklayın (bir veri dosyasını üzerine
 sürükleyip bırakırsanız açılışta yüklenir) ya da:
@@ -95,7 +330,7 @@ python veri_goruntuleyici.py "D:\veri\dosya.csv"
 | **Sıralama** | Kolon, yön, tür, kapsam, en iyi N | `Ctrl+4` |
 | **Seçim** | Sayfayı seç, seçimi temizle, seçilenleri göster/aktar | `Ctrl+5` |
 
-### Web
+#### Web
 
 Masaüstündeki **🌐 Web Arayüzü** düğmesi sunucuyu arka planda başlatıp
 tarayıcıyı açar. Elle başlatmak için `webde_goruntule.bat` ya da:
@@ -112,13 +347,13 @@ Ayrıntılar ve API uç noktaları: [LIVEDATA_WEB.md](LIVEDATA_WEB.md).
 > kimlik doğrulama ve CSRF koruması yoktur, `DEBUG = True`'dur. İnternete
 > açık bir sunucuda bu hâliyle çalıştırmayın.
 
-### Python olmayan bir bilgisayara dağıtmak
+#### Python olmayan bir bilgisayara dağıtmak
 
 `tools/exe_paketle.bat` masaüstü ekranını tek dosyalık
 `dist/LiveDataGoruntuleyici.exe`'ye (~12 MB) paketler; hedef makinede Python
 kurulumu gerekmez.
 
-## Desteklenen dosyalar
+### Desteklenen dosyalar
 
 Uzantılar: `.csv` `.tsv` `.txt` `.json` `.jsonl` `.ndjson` `.xml` `.yaml`
 `.yml` — UTF-8 ve tek baytlı kodlamalar (UTF-16/32 desteklenmez).
@@ -139,7 +374,7 @@ Girintili ("pretty-print") JSON ya da kayıtları birden çok satıra yayılmı�
 XML açılmaz; yanlış satır numarası göstermek yerine açıklayıcı bir hata
 verilir.
 
-## Ölçülen başarım
+### Ölçülen başarım
 
 Gerçek dosyalarla, bu uygulama üzerinden ölçülmüştür:
 
@@ -162,9 +397,10 @@ Gerçek dosyalarla, bu uygulama üzerinden ölçülmüştür:
 Projenin önceki sürümü kaynağı önce diske yeni bir depoya (JSONL + yoğun
 indeks) aktarıyordu: aynı dört dosya için ~150 GiB ek disk ve aktarım
 bitene kadar bekleme. livedata bu kopyalama adımını tamamen kaldırır —
-karşılaştırma için [LIVEDATA.md](LIVEDATA.md) ("Neden eski işlenmiş veri yolundan çok daha hızlı?").
+karşılaştırma için [LIVEDATA.md](LIVEDATA.md) ("Neden eski işlenmiş veri
+yolundan çok daha hızlı?").
 
-## Mimari
+### Mimari
 
 ```
 livedata/
@@ -191,7 +427,7 @@ tools/            ikon üretimi ve .exe paketleme
 bir modül eklemek demektir. `livedata/` paketi Tkinter'a bağımlı değildir;
 web arayüzü onu hiç değiştirmeden kullanır.
 
-## Testler
+### Testler
 
 ```bash
 python -m unittest tests.test_livedata
@@ -209,7 +445,7 @@ ikincisi web arayüzünün testlerini çalıştırır.
 > koda ait ~356 test daha vardır; dakikalar sürer ve livedata ile ilgisi
 > yoktur.
 
-## Belgeler
+### Belgeler
 
 - [LIVEDATA.md](LIVEDATA.md) — mimari, ekran, tüm özellikler, ölçümler,
   bilinçli sınırlar.
@@ -218,7 +454,7 @@ ikincisi web arayüzünün testlerini çalıştırır.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — eski DataInspector sürümünün mimarisi
   (tarihsel).
 
-## Eski kod
+### Eski kod
 
 `main.py`, `models.py`, `gui/`, `parsers/`, `algorithms/`, `decoder/`,
 `streaming_pilot/`, `utils/` ve `ARCHITECTURE.md` projenin ilk, artık terk
