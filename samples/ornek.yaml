@@ -1,0 +1,25 @@
+- id: 1
+  ad: Ali Veli
+  sehir: Ankara
+  aktif: true
+  etiketler:
+    - yonetici
+    - test
+  adres:
+    il: Ankara
+    ilce: Cankaya
+- id: 2
+  ad: Ayse Yilmaz
+  sehir: Istanbul
+  aktif: false
+  etiketler:
+    - kullanici
+  adres:
+    il: Istanbul
+    ilce: Kadikoy
+- id: 3
+  ad: Mehmet Demir
+  sehir: null
+  aktif: true
+  etiketler: []
+  adres: {}

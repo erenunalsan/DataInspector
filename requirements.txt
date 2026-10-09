@@ -1,0 +1,15 @@
+PyYAML
+ijson
+simplejson
+
+# livedata web arayüzü (webproj/ + gorunum/) için -- bkz. LIVEDATA_WEB.md
+django
+waitress
+
+# livedata masaüstü arayüzü: Windows 11 (Fluent) açık/koyu tema
+sv-ttk
+# Uygulama ikonunun (livedata/ui/assets/icon.ico) üretilmesi için (tools/)
+pillow
+# Yalnızca tek-dosya .exe paketlemek için gerekir (tools/exe_paketle.bat);
+# uygulamayı çalıştırmak için ZORUNLU DEĞİLDİR.
+pyinstaller

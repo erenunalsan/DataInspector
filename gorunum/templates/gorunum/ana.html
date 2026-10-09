@@ -1,0 +1,314 @@
+{% load static %}<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>livedata — büyük veri görüntüleyici (web)</title>
+<link rel="icon" href="{% static 'gorunum/favicon.ico' %}">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="{% static 'gorunum/app.css' %}">
+<script>
+  // Sayfa çizilmeden ÖNCE tema sınıfını uygula -- aksi hâlde koyu tema
+  // seçiliyken bir an için açık tema görünüp sonra koyuya "titremesi"
+  // (flash of wrong theme) olurdu.
+  (function () {
+    var url = new URLSearchParams(location.search).get("tema");
+    var tercih = (url === "acik" || url === "koyu")
+      ? url : localStorage.getItem("livedata-tema");
+    if (tercih === "acik" || tercih === "koyu") {
+      document.documentElement.dataset.tema = tercih;
+    }
+  })();
+</script>
+</head>
+<body>
+
+<!-- Hızlı erişim: her sekmede görünür -->
+<div class="hizli-erisim">
+  <button id="dosya-sec-dugme" class="dugme" title="Dizin gezinerek dosya seç">📁 Dosya Seç…</button>
+  <div class="son-dosyalar-sarmal">
+    <button id="son-dosyalar-dugme" class="dugme" title="Son açılan dosyalar">🕘</button>
+    <div id="son-dosyalar-acilir" class="son-dosyalar-acilir" hidden></div>
+  </div>
+  <input id="yol-kutu" type="text" placeholder="Dosya yolu (ör. D:\ders_eren\eren_csv.csv)">
+  <button id="ac-dugme" class="dugme birincil">▶ Aç</button>
+  <button id="kapat-dugme" class="dugme" disabled>✕ Kapat</button>
+  <span id="bicim-etiket" class="bicim-etiket"></span>
+  <button id="tema-dugme" class="dugme" title="Açık/koyu temayı değiştir">🌙 Koyu Tema</button>
+</div>
+
+<!-- Şerit sekmeleri -->
+<div class="serit">
+  <div class="serit-basliklar">
+    <button class="sekme-baslik" data-sekme="dosya">Dosya</button>
+    <button class="sekme-baslik aktif" data-sekme="ana">Ana Sayfa</button>
+    <button class="sekme-baslik" data-sekme="arama">Arama</button>
+    <button class="sekme-baslik" data-sekme="siralama">Sıralama</button>
+    <button class="sekme-baslik" data-sekme="secim">Seçim</button>
+  </div>
+
+  <div class="sekme-govde" data-sekme-govde="dosya">
+    <div class="grup">
+      <div class="grup-ust">
+        <label>Ayraç
+          <select id="ayrac-secim">
+            <option value="">Otomatik</option>
+            <option value=";">; (noktalı virgül)</option>
+            <option value=",">, (virgül)</option>
+            <option value="&#9;">\t (sekme)</option>
+            <option value="|">| (dik çizgi)</option>
+          </select>
+        </label>
+        <label>Kodlama
+          <select id="kodlama-secim">
+            <option value="">Otomatik</option>
+            <option value="utf-8">utf-8</option>
+            <option value="utf-8-sig">utf-8-sig</option>
+            <option value="cp1254">cp1254</option>
+            <option value="latin-1">latin-1</option>
+          </select>
+        </label>
+      </div>
+      <div class="grup-baslik">Ayırıcı / Kodlama</div>
+    </div>
+    <div class="ayirac"></div>
+    <div class="grup">
+      <div class="grup-ust">
+        <label>İlk satır başlık
+          <select id="baslik-secim">
+            <option value="">Otomatik</option>
+            <option value="var">Var</option>
+            <option value="yok">Yok</option>
+          </select>
+        </label>
+        <label>Tırnak
+          <select id="tirnak-secim">
+            <option value="">Otomatik</option>
+            <option value="duyarli">Duyarlı</option>
+            <option value="duyarsiz">Duyarsız (hızlı)</option>
+          </select>
+        </label>
+      </div>
+      <div class="grup-baslik">Başlık / Tırnak</div>
+    </div>
+    <span class="not-metni">Bu seçenekler yalnızca CSV içindir ve dosyayı açmadan ÖNCE ayarlanmalıdır.</span>
+  </div>
+
+  <div class="sekme-govde aktif" data-sekme-govde="ana">
+    <div class="grup">
+      <div class="grup-ust">
+        <button id="onceki-dugme" class="dugme" disabled>◀</button>
+        <button id="sonraki-dugme" class="dugme" disabled>▶</button>
+        <span id="sayfa-etiket" class="etiket-genis">Sayfa —</span>
+      </div>
+      <div class="grup-baslik">Sayfa</div>
+    </div>
+    <div class="ayirac"></div>
+    <div class="grup">
+      <div class="grup-ust">
+        <input id="git-kutu" type="text" size="12" placeholder="satır no">
+        <button id="git-dugme" class="dugme" disabled>Git</button>
+        <label><input id="taban-kutu" type="checkbox"> 1'den başlat</label>
+      </div>
+      <div class="grup-baslik">Satıra git</div>
+    </div>
+    <div class="ayirac"></div>
+    <div class="grup">
+      <div class="grup-ust">
+        <button id="indeksle-dugme" class="dugme" disabled>Tam indeksle</button>
+        <button id="kolonlar-dugme" class="dugme" disabled>Kolonlar…</button>
+      </div>
+      <div class="grup-baslik">Araçlar</div>
+    </div>
+    <span id="git-notu" class="not-metni uyari-metni"></span>
+  </div>
+
+  <div class="sekme-govde" data-sekme-govde="arama">
+    <div class="grup">
+      <div class="grup-ust">
+        <input id="arama-kutu" type="text" size="34" placeholder="Aranan metin">
+        <label><input id="duyarli-kutu" type="checkbox"> Büyük/küçük harfe duyarlı</label>
+        <label><input id="regex-kutu" type="checkbox"> Regex (düzenli ifade)</label>
+        <button id="ara-dugme" class="dugme birincil" disabled>Ara</button>
+        <button id="arama-dur-dugme" class="dugme" disabled>Durdur</button>
+      </div>
+      <div class="grup-baslik">Ara</div>
+    </div>
+    <div class="ayirac"></div>
+    <div class="grup">
+      <div class="grup-ust">
+        <span id="eslesme-etiket" class="etiket-genis">eşleşme yok</span>
+      </div>
+      <div class="grup-baslik">Eşleşmeler</div>
+    </div>
+  </div>
+
+  <div class="sekme-govde" data-sekme-govde="siralama">
+    <div class="grup">
+      <div class="grup-ust">
+        <select id="sirala-kolon"></select>
+        <select id="sirala-yon">
+          <option value="azalan">Azalan (Z→A, 9→0)</option>
+          <option value="artan">Artan (A→Z, 0→9)</option>
+        </select>
+        <select id="sirala-tur">
+          <option value="metin">Metin</option>
+          <option value="sayi">Sayı</option>
+        </select>
+      </div>
+      <div class="grup-baslik">Kolon / Yön / Tür</div>
+    </div>
+    <div class="ayirac"></div>
+    <div class="grup">
+      <div class="grup-ust">
+        <select id="sirala-kapsam">
+          <option value="sayfa">Bu sayfa (tam sıralama)</option>
+          <option value="tum">Tüm dosya (en iyi N)</option>
+          <option value="arama">Arama sonuçları</option>
+        </select>
+        <label id="sirala-k-etiket">En iyi: <input id="sirala-k" type="text" size="7" value="10000"></label>
+      </div>
+      <div class="grup-baslik">Kapsam</div>
+    </div>
+    <div class="ayirac"></div>
+    <div class="grup">
+      <div class="grup-ust">
+        <button id="sirala-dugme" class="dugme birincil" disabled>Sırala</button>
+        <button id="sirala-dur-dugme" class="dugme" disabled>Durdur</button>
+        <button id="sirala-sifirla-dugme" class="dugme" disabled>Kaynak sırasına dön</button>
+      </div>
+      <div class="grup-baslik">Eylemler</div>
+    </div>
+  </div>
+
+  <div class="sekme-govde" data-sekme-govde="secim">
+    <div class="grup">
+      <div class="grup-ust">
+        <button id="secim-sayfa-dugme" class="dugme" disabled>Sayfayı Seç</button>
+        <button id="secim-temizle-dugme" class="dugme" disabled>Seçimi Temizle</button>
+      </div>
+      <div class="grup-baslik">Seçim</div>
+    </div>
+    <div class="ayirac"></div>
+    <div class="grup">
+      <div class="grup-ust">
+        <span id="secim-etiket" class="etiket-genis">Seçili: 0 kayıt</span>
+        <button id="secim-goster-dugme" class="dugme" disabled>Seçilenleri Göster…</button>
+      </div>
+      <div class="grup-baslik">Durum</div>
+    </div>
+    <span class="not-metni">İpucu: satırın solundaki kutucuğu kullanarak kayıtları işaretleyin. İşaretlenen kayıtlar sayfa/sıralama değişse de kalıcıdır.</span>
+  </div>
+</div>
+
+<!-- Tablo -->
+<div id="tablo-baslik-satiri" class="tablo-baslik-satiri"></div>
+<div id="tablo-sarmal" class="tablo-sarmal">
+  <div id="tablo-aralayici" class="tablo-aralayici"></div>
+  <div id="tablo-govde" class="tablo-govde"></div>
+  <div id="bos-durum" class="bos-durum">
+    <div class="bos-durum-ikon">📂</div>
+    <div class="bos-durum-baslik">Henüz bir dosya açılmadı</div>
+    <button id="bos-durum-dugme" class="dugme birincil">📁 Dosya Seç…</button>
+  </div>
+</div>
+
+<!-- Alt panel: konsol / arama sonuçları -->
+<div class="alt-panel">
+  <div class="alt-basliklar">
+    <button class="alt-baslik aktif" data-alt="konsol">Konsol</button>
+    <button class="alt-baslik" data-alt="sonuclar">Arama sonuçları</button>
+  </div>
+  <div id="konsol-alan" class="alt-govde aktif" data-alt-govde="konsol"></div>
+  <div id="sonuc-alan" class="alt-govde" data-alt-govde="sonuclar">
+    <table class="sonuc-tablo"><tbody id="sonuc-govde"></tbody></table>
+  </div>
+</div>
+
+<!-- Durum çubuğu -->
+<div class="durum-cubugu">
+  <div class="ilerleme-satiri">
+    <span class="ilerleme-baslik">İndeks:</span>
+    <div class="ilerleme-cubuk-dis"><div id="indeks-cubuk" class="ilerleme-cubuk-ic"></div></div>
+    <span id="indeks-etiket" class="ilerleme-metin">— (istek üzerine)</span>
+  </div>
+  <div class="ilerleme-satiri">
+    <span id="islem-baslik" class="ilerleme-baslik">Arama:</span>
+    <div class="ilerleme-cubuk-dis"><div id="islem-cubuk" class="ilerleme-cubuk-ic"></div></div>
+    <span id="islem-etiket" class="ilerleme-metin">—</span>
+  </div>
+  <div id="durum-metin" class="durum-metin">Dosya açılmadı.</div>
+</div>
+
+<!-- Kalıp/şablonlar -->
+<div id="gozat-modal" class="modal-arkaplan" hidden>
+  <div class="modal-kutu">
+    <div class="modal-baslik">Dosya seç <button class="modal-kapat" data-kapat="gozat-modal">✕</button></div>
+    <div class="gozat-yol-satiri">
+      <input id="gozat-yol-kutu" type="text" placeholder="Bir yol yazıp Enter'a basın (ör. D:\ders_eren)">
+      <button id="gozat-yol-git" class="dugme">Git</button>
+    </div>
+    <div id="gozat-surucu-satiri" class="gozat-surucu-satiri"></div>
+    <div id="gozat-dizin" class="gozat-dizin"></div>
+    <div id="gozat-liste" class="gozat-liste"></div>
+  </div>
+</div>
+
+<div id="satir-modal" class="modal-arkaplan" hidden>
+  <div class="modal-kutu genis">
+    <div class="modal-baslik">Satır ayrıntısı <button class="modal-kapat" data-kapat="satir-modal">✕</button></div>
+    <div id="satir-icerik" class="satir-icerik"></div>
+    <div class="modal-alt">
+      <button id="b64-coz-dugme" class="dugme">Base64 Çöz</button>
+    </div>
+    <div id="b64-sonuc" class="b64-sonuc" hidden></div>
+  </div>
+</div>
+
+<div id="secim-modal" class="modal-arkaplan" hidden>
+  <div class="modal-kutu genis">
+    <div class="modal-baslik">Seçili Veriler <button class="modal-kapat" data-kapat="secim-modal">✕</button></div>
+    <div class="modal-alt">
+      <span id="secim-modal-sayac"></span>
+      <button id="disa-aktar-excel" class="dugme">⬇ Excel (.xlsx)</button>
+      <button id="disa-aktar-word" class="dugme">⬇ Word (.docx)</button>
+      <button id="disa-aktar-pdf" class="dugme">⬇ PDF (.pdf)</button>
+      <span id="disa-aktar-durum" class="not-metni"></span>
+    </div>
+    <div id="secim-liste-alan" class="secim-liste-alan"></div>
+  </div>
+</div>
+
+<div id="kolonlar-modal" class="modal-arkaplan" hidden>
+  <div class="modal-kutu">
+    <div class="modal-baslik">Kolonlar <button class="modal-kapat" data-kapat="kolonlar-modal">✕</button></div>
+    <div id="kolonlar-liste" class="kolonlar-liste"></div>
+    <div class="modal-alt">
+      <button id="kolonlar-tumu" class="dugme" type="button">Tümü</button>
+      <button id="kolonlar-hicbiri" class="dugme" type="button">Hiçbiri</button>
+      <span style="flex:1"></span>
+      <button id="kolonlar-uygula" class="dugme birincil">Uygula</button>
+    </div>
+  </div>
+</div>
+
+<div id="onay-modal" class="modal-arkaplan" hidden>
+  <div class="modal-kutu onay-kutu">
+    <div id="onay-mesaj" class="onay-mesaj"></div>
+    <div class="modal-alt">
+      <button id="onay-evet" class="dugme birincil">Onayla</button>
+      <button id="onay-hayir" class="dugme">Vazgeç</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-alan" class="toast-alan" aria-live="polite"></div>
+
+<script>
+window.LIVEDATA_AYAR = {
+  secimTavani: {{ secim_tavani }}
+};
+</script>
+<script src="{% static 'gorunum/app.js' %}"></script>
+</body>
+</html>

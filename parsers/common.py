@@ -12,14 +12,19 @@ class ParseError(Exception):
     """Dosya okuma, ayrıştırma veya normalizasyon sırasında oluşan anlaşılır hata."""
 
 
-def read_text_file(path: str) -> str:
+def read_text_file(path: str, newline: str = None) -> str:
     """Dosyayı UTF-8 (BOM'lu ya da BOM'suz) metin olarak okur.
 
     Yalnızca dosya okuma adımıdır; ayrıştırma yapmaz. Böylece dosya okuma
     süresi, ayrıştırma süresinden ayrı ölçülebilir.
+
+    newline=None (varsayılan) evrensel satır sonu çevrimini açık bırakır;
+    JSON için bu yeterlidir. CSV gibi hücre içi CRLF'nin değişmeden
+    korunması gereken biçimler için newline="" verilmelidir (bkz.
+    parsers/__init__.py'deki .csv dalı).
     """
     try:
-        with open(path, "r", encoding="utf-8-sig") as f:
+        with open(path, "r", encoding="utf-8-sig", newline=newline) as f:
             return f.read()
     except FileNotFoundError as e:
         raise ParseError(f"Dosya bulunamadı: {path}") from e
@@ -55,7 +60,7 @@ def _flatten_record(record: dict) -> dict:
     return result
 
 
-def normalize(records: list) -> Dataset:
+def normalize(records: list, known_columns: list = None) -> Dataset:
     """Ham kayıt listesini (dict listesi) düzleştirip kolon birleşimini
     hesaplayarak bir Dataset üretir.
 
@@ -64,10 +69,21 @@ def normalize(records: list) -> Dataset:
     farklı alan yollarından üretilip üretilmediğine bakılarak (özgün alan yolu
     karşılaştırması) tespit edilir; böyle bir çakışma sessizce birleştirilmez,
     ParseError fırlatılır.
+
+    known_columns, kayıtlardan bağımsız olarak önceden bilinen düz (iç içe
+    olmayan) kolon adlarını (ör. CSV başlıkları) tohumlamak için kullanılır.
+    Bu sayede sıfır kayıtlı bir veri kümesinde bile (ör. yalnızca başlık
+    satırı olan bir CSV dosyası) kolonlar kaybolmaz. Varsayılan None, mevcut
+    davranışı (kolonların yalnızca kayıtlardan türetilmesi) değiştirmez.
     """
     column_order: list = []
     column_paths: dict = {}
     flat_records: list = []
+
+    if known_columns:
+        for name in known_columns:
+            column_paths[name] = (name,)
+            column_order.append(name)
 
     for record in records:
         flat = _flatten_record(record)

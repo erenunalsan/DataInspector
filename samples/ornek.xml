@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kayitlar>
+  <kayit id="1">
+    <ad>Ali Veli</ad>
+    <sehir>Ankara</sehir>
+    <etiket>yonetici</etiket>
+    <etiket>test</etiket>
+    <adres>
+      <il>Ankara</il>
+      <ilce>Cankaya</ilce>
+    </adres>
+  </kayit>
+  <kayit id="2">
+    <ad>Ayse Yilmaz</ad>
+    <sehir>Istanbul</sehir>
+    <etiket>kullanici</etiket>
+    <adres>
+      <il>Istanbul</il>
+      <ilce>Kadikoy</ilce>
+    </adres>
+  </kayit>
+</kayitlar>

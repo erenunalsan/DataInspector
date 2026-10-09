@@ -1,0 +1,28 @@
+[
+  {
+    "id": 1,
+    "ad": "Ali Veli",
+    "sehir": "Ankara",
+    "aktif": true,
+    "etiketler": ["yonetici", "test"],
+    "adres": {"il": "Ankara", "ilce": "Cankaya"},
+    "parca1": "B64:RGF0YUluc3BlY3RvciBvcm5layBtZXNham:END",
+    "parca2": "B64:kgLSBwYXJjYWxpIEJhc2U2NCB0ZXN0aQ==:END"
+  },
+  {
+    "id": 2,
+    "ad": "Ayse Yilmaz",
+    "sehir": "Istanbul",
+    "aktif": false,
+    "etiketler": ["kullanici"],
+    "adres": {"il": "Istanbul", "ilce": "Kadikoy"}
+  },
+  {
+    "id": 3,
+    "ad": "Mehmet Demir",
+    "sehir": null,
+    "aktif": true,
+    "etiketler": [],
+    "adres": {}
+  }
+]

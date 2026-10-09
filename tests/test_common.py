@@ -82,6 +82,20 @@ class TestNormalize(unittest.TestCase):
         self.assertEqual(ds.rows[0].raw["a.b"], 1)
         self.assertEqual(ds.rows[1].raw["a.b"], 2)
 
+    def test_known_columns_seeds_empty_dataset_with_columns(self):
+        ds = normalize([], known_columns=["ad", "yas"])
+        self.assertEqual(ds.columns, ["ad", "yas"])
+        self.assertEqual(ds.rows, [])
+
+    def test_known_columns_with_records_fills_normally(self):
+        ds = normalize([{"ad": "Ali", "yas": "30"}], known_columns=["ad", "yas"])
+        self.assertEqual(ds.columns, ["ad", "yas"])
+        self.assertEqual(ds.rows[0].raw, {"ad": "Ali", "yas": "30"})
+
+    def test_no_known_columns_keeps_previous_behavior(self):
+        ds = normalize([{"a": 1}])
+        self.assertEqual(ds.columns, ["a"])
+
 
 class TestReadTextFile(unittest.TestCase):
     def test_file_not_found_raises_parse_error(self):

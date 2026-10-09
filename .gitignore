@@ -3,3 +3,20 @@ __pycache__/
 *.pyc
 .idea/
 .vscode/
+
+# PyInstaller paketleme çıktıları (bkz. tools/exe_paketle.bat) -- yeniden
+# üretilebilir, depoya eklenmez.
+build/
+dist/
+*.spec
+
+# Kullanıcının kendi "son kullanılan dosyalar" tercihi (%APPDATA%'da tutulur,
+# ama biri projeyi APPDATA içine klonlarsa yine de burada süzülsün).
+son_dosyalar.json
+
+# Ölçüm için üretilmiş ~1 GB'lık örnek dosyalar -- GitHub'ın 100 MB dosya
+# sınırını aşar, depoya eklenmez. Küçük örnekler samples/ altındadır.
+örnek veri/
+
+# Claude Code'un yerel izin ayarları (makineye özgü)
+.claude/settings.local.json
